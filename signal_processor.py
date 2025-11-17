@@ -25,6 +25,10 @@ class SignalProcessor:
         self.buffer: deque = deque(maxlen=config.BUFFER_SIZE)
         self.current_bpm: Optional[float] = None
         
+        # Waveform visualization buffer - stores filtered signal for display
+        self.waveform_buffer: deque = deque(maxlen=config.WAVEFORM_WINDOW_SIZE)
+        self.filtered_signal_value: Optional[float] = None
+        
         # Pre-calculate Butterworth filter coefficients for efficiency
         self._setup_bandpass_filter()
     
@@ -124,6 +128,10 @@ class SignalProcessor:
                 normalized_signal
             )
             
+            # Store the latest filtered value for waveform visualization
+            self.filtered_signal_value = filtered_signal[-1]
+            self.waveform_buffer.append(self.filtered_signal_value)
+            
             # Step 4: FFT - Frequency domain analysis
             # Use real FFT since signal is real-valued
             fft_data = np.fft.rfft(filtered_signal)
@@ -185,3 +193,73 @@ class SignalProcessor:
             True if buffer is full, False otherwise
         """
         return len(self.buffer) == config.BUFFER_SIZE
+    
+    def get_waveform_data(self) -> List[float]:
+        """
+        Get the current waveform data for visualization.
+        
+        Returns:
+            List of filtered signal values for plotting
+        """
+        return list(self.waveform_buffer)
+    
+    def get_buffer(self) -> np.ndarray:
+        """
+        Get the raw signal buffer for analysis or visualization.
+        
+        Returns:
+            Numpy array of raw green channel values from the buffer
+        """
+        if len(self.buffer) == 0:
+            return np.array([], dtype=np.float64)
+        
+        return np.array(self.buffer, dtype=np.float64)
+    
+    def get_filtered_signal(self) -> np.ndarray:
+        """
+        Apply full signal processing pipeline to current buffer and return the filtered signal.
+        This is the clean, wave-like signal suitable for visualization.
+        
+        Pipeline:
+        1. Detrending - Remove slow baseline drift
+        2. Normalization - Standardize signal amplitude
+        3. Bandpass Filtering - Remove noise outside heart rate range
+        
+        Returns:
+            Numpy array of filtered signal values (same length as buffer)
+            Returns array of zeros if buffer isn't full yet
+        """
+        # If buffer isn't full, return zeros
+        if len(self.buffer) < config.BUFFER_SIZE:
+            return np.zeros(config.BUFFER_SIZE, dtype=np.float64)
+        
+        try:
+            # Convert buffer to numpy array
+            raw_signal = np.array(self.buffer, dtype=np.float64)
+            
+            # Step 1: Detrending - Remove polynomial trend (linear by default)
+            detrended_signal = signal.detrend(raw_signal, type='linear')
+            
+            # Step 2: Normalization - Zero mean, unit variance
+            mean_val = np.mean(detrended_signal)
+            std_val = np.std(detrended_signal)
+            
+            # Handle edge case: constant signal (std = 0)
+            if std_val < 1e-10:
+                return np.zeros(len(raw_signal), dtype=np.float64)
+            
+            normalized_signal = (detrended_signal - mean_val) / std_val
+            
+            # Step 3: Bandpass Filtering - Keep only heart rate frequencies
+            # Using filtfilt for zero-phase filtering (no time delay)
+            filtered_signal = signal.filtfilt(
+                self.filter_b,
+                self.filter_a,
+                normalized_signal
+            )
+            
+            return filtered_signal
+            
+        except Exception as e:
+            print(f"Error generating filtered signal: {e}")
+            return np.zeros(config.BUFFER_SIZE, dtype=np.float64)
