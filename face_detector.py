@@ -84,8 +84,13 @@ class FaceDetector:
         if roi_points is None or len(roi_points) == 0:
             return frame
         
-        # Convert roi_points to numpy array for cv2.polylines
+        # Get frame dimensions for boundary checking
+        h, w = frame.shape[:2]
+        
+        # Convert roi_points to numpy array and clip to frame bounds
         points = np.array(roi_points, dtype=np.int32)
+        points[:, 0] = np.clip(points[:, 0], 0, w - 1)  # Clip x coordinates
+        points[:, 1] = np.clip(points[:, 1], 0, h - 1)  # Clip y coordinates
         
         # Draw the polygon
         cv2.polylines(
