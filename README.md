@@ -1,4 +1,4 @@
-# 🩺 AuraScan: AI-Powered Remote Vitals Monitor
+#  AuraScan: AI-Powered Remote Vitals Monitor
 
 > **Contactless Heart Rate Detection Using Computer Vision & Digital Signal Processing**
 
@@ -34,7 +34,7 @@ AuraScan uses **remote photoplethysmography (rPPG)** to detect your heartbeat th
 
 ---
 
-## 🎯 Key Features
+##  Key Features
 
 ### 1. **Real-Time Heart Rate Monitoring**
 - Continuous BPM measurement from webcam video
@@ -63,7 +63,7 @@ AuraScan uses **remote photoplethysmography (rPPG)** to detect your heartbeat th
 
 ---
 
-## 🔬 How It Works
+## How It Works and the technologies behind it :
 
 ### The Science: Remote Photoplethysmography (rPPG)
 
