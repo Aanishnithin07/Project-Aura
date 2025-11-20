@@ -160,31 +160,7 @@ python main.py
 
 ---
 
-## 📁 Project Structure
 
-```
-AuraScan/
-│
-├── app.py                    # Streamlit web application
-├── main.py                   # Desktop OpenCV application
-│
-├── face_detector.py          # MediaPipe Face Mesh integration
-├── signal_processor.py       # DSP pipeline (filtering, FFT, BPM)
-├── ui_renderer.py            # Professional HUD interface
-├── config.py                 # Centralized configuration
-│
-├── requirements.txt          # Python dependencies (web-ready)
-├── requirements_web.txt      # Streamlit Cloud dependencies
-├── packages.txt              # System dependencies (libgl1)
-│
-├── .streamlit/
-│   └── config.toml           # Streamlit configuration
-│
-├── demo_ui_renderer.py       # UI component demos
-├── example_signal_usage.py   # Signal API examples
-│
-└── README.md                 # This file
-```
 
 ### Core Modules
 
