@@ -10,7 +10,7 @@
 
 **AuraScan** is a telehealth application that monitors your heart rate in real-time using only your webcam—no wearables, no contact, just AI-powered computer vision.
 
-🚀 **[Try Live Demo](https://share.streamlit.io/)** | 📖 **[Documentation](#how-it-works)** | 🎥 **[Watch Demo Video](#demo)**
+🚀 **[Try Live Demo](https://share.streamlit.io/)** | 📖 **[Documentation](#how-it-works)** | 
 
 ---
 
