@@ -466,9 +466,8 @@ This application is **NOT** a medical device and should **NOT** be used for:
 
 <div align="center">
 
-### 🌟 If you found this project useful, please give it a star! 🌟
 
-**Made with ❤️ by Aanish Nithin**
+**by Aanish Nithin**
 
 [⬆ Back to Top](#-aurascan-ai-powered-remote-vitals-monitor)
 
