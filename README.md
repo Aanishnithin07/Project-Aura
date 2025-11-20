@@ -114,7 +114,7 @@ Blood Pulse → Capillary Volume Change → Skin Color Variation → Camera Dete
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Option 1: Web App (Recommended for Quick Testing)
 
