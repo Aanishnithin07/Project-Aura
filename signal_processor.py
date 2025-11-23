@@ -32,6 +32,16 @@ class SignalProcessor:
         # Pre-calculate Butterworth filter coefficients for efficiency
         self._setup_bandpass_filter()
     
+    def add_value(self, value: float) -> None:
+        """
+        Add a single signal value to the buffer.
+        Simplified method for web app compatibility.
+        
+        Args:
+            value: Green channel average value from current frame
+        """
+        self.buffer.append(value)
+    
     def _setup_bandpass_filter(self) -> None:
         """
         Pre-calculate Butterworth bandpass filter coefficients.
