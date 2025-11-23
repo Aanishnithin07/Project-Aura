@@ -140,9 +140,14 @@ class VideoTransformer(VideoProcessorBase):
 
     def __init__(self):
         # Initialize detection and processing modules
-        self.face_detector = FaceDetector()
-        self.signal_processor = SignalProcessor()
-        self.ui_renderer = UIRenderer()
+        try:
+            self.face_detector = FaceDetector()
+            self.signal_processor = SignalProcessor()
+            self.ui_renderer = UIRenderer()
+            self.initialization_error = None
+        except Exception as e:
+            self.initialization_error = f"Initialization failed: {str(e)}"
+            st.error(f"⚠️ Error initializing modules: {str(e)}")
         
         # Thread-safe lock for shared state
         self.lock = threading.Lock()
@@ -152,6 +157,8 @@ class VideoTransformer(VideoProcessorBase):
         self.face_detected = False
         self.buffer_fill_percentage = 0
         self.frame_count = 0
+        self.error_count = 0
+        self.last_error = None
         
         # Streamlit UI elements (will be updated from main thread)
         self.status_placeholder = None
@@ -159,7 +166,7 @@ class VideoTransformer(VideoProcessorBase):
 
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
         """
-        Process each incoming video frame.
+        Process each incoming video frame with comprehensive error handling.
         
         Args:
             frame: Input video frame from webcam
@@ -167,102 +174,173 @@ class VideoTransformer(VideoProcessorBase):
         Returns:
             Processed video frame with overlays
         """
-        # Convert AVFrame to NumPy array (BGR format)
-        img = frame.to_ndarray(format="bgr24")
+        try:
+            # Check for initialization errors
+            if hasattr(self, 'initialization_error') and self.initialization_error:
+                # Return frame with error message
+                img = frame.to_ndarray(format="bgr24")
+                cv2.putText(img, "Initialization Error", (50, 50), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                return av.VideoFrame.from_ndarray(img, format="bgr24")
+            
+            # Convert AVFrame to NumPy array (BGR format)
+            img = frame.to_ndarray(format="bgr24")
+            
+            # Create a copy for processing
+            display_frame = img.copy()
+            
+            # Increment frame counter
+            self.frame_count += 1
+            
+            # Detect face and get landmarks with error handling
+            try:
+                landmarks = self.face_detector.get_landmarks(img)
+            except Exception as e:
+                self.last_error = f"Face detection error: {str(e)}"
+                self.error_count += 1
+                landmarks = None
         
-        # Create a copy for processing
-        display_frame = img.copy()
+            with self.lock:
+                try:
+                    if landmarks is not None:
+                        self.face_detected = True
+                        
+                        # Extract Region of Interest (forehead area)
+                        try:
+                            roi_pixels = self.face_detector.extract_roi_pixels(img, landmarks)
+                        except Exception as e:
+                            self.last_error = f"ROI extraction error: {str(e)}"
+                            self.error_count += 1
+                            roi_pixels = None
+                        
+                        if roi_pixels is not None and len(roi_pixels) > 0:
+                            try:
+                                # Calculate average green channel value (blood volume proxy)
+                                green_avg = np.mean(roi_pixels[:, 1])  # Index 1 is Green channel in BGR
+                                
+                                # Add to signal processor buffer
+                                self.signal_processor.add_value(green_avg)
+                                
+                                # Calculate buffer fill percentage
+                                buffer_size = len(self.signal_processor.buffer)
+                                self.buffer_fill_percentage = (buffer_size / config.BUFFER_SIZE) * 100
+                            except Exception as e:
+                                self.last_error = f"Signal processing error: {str(e)}"
+                                self.error_count += 1
+                            
+                            # Draw ROI rectangle on frame
+                            try:
+                                roi_rect = self.face_detector.get_roi_rect(landmarks)
+                                if roi_rect is not None:
+                                    x, y, w, h = roi_rect
+                                    cv2.rectangle(display_frame, (x, y), (x + w, y + h), (0, 255, 100), 2)
+                                    cv2.putText(
+                                        display_frame,
+                                        "ROI",
+                                        (x, y - 10),
+                                        cv2.FONT_HERSHEY_SIMPLEX,
+                                        0.5,
+                                        (0, 255, 100),
+                                        2
+                                    )
+                            except Exception as e:
+                                self.last_error = f"ROI drawing error: {str(e)}"
+                                self.error_count += 1
+                            
+                            # Calculate BPM if buffer is sufficiently filled
+                            try:
+                                if buffer_size >= config.BUFFER_SIZE:
+                                    bpm = self.signal_processor.calculate_bpm()
+                                    if bpm is not None:
+                                        self.current_bpm = bpm
+                            except Exception as e:
+                                self.last_error = f"BPM calculation error: {str(e)}"
+                                self.error_count += 1
+                            
+                            # Get filtered signal for waveform visualization
+                            try:
+                                filtered_signal = self.signal_processor.get_filtered_signal()
+                                
+                                # Draw waveform graph
+                                if filtered_signal is not None and len(filtered_signal) > 0:
+                                    graph_x = 20
+                                    graph_y = 20
+                                    self.ui_renderer.draw_graph(
+                                        display_frame,
+                                        filtered_signal,
+                                        (graph_x, graph_y)
+                                    )
+                            except Exception as e:
+                                self.last_error = f"Waveform rendering error: {str(e)}"
+                                self.error_count += 1
+                            
+                            # Draw info panel with BPM
+                            try:
+                                self.ui_renderer.draw_info_panel(
+                                    display_frame,
+                                    self.current_bpm,
+                                    self.face_detected
+                                )
+                            except Exception as e:
+                                self.last_error = f"Info panel error: {str(e)}"
+                                self.error_count += 1
+                            
+                            # Draw progress bar for buffer fill
+                            try:
+                                if self.buffer_fill_percentage < 100:
+                                    progress_x = display_frame.shape[1] - 220
+                                    progress_y = display_frame.shape[0] - 60
+                                    self.ui_renderer.draw_progress_bar(
+                                        display_frame,
+                                        self.buffer_fill_percentage / 100,
+                                        (progress_x, progress_y),
+                                        200,
+                                        20
+                                    )
+                            except Exception as e:
+                                self.last_error = f"Progress bar error: {str(e)}"
+                                self.error_count += 1
+                    else:
+                        # No face detected
+                        self.face_detected = False
+                        self.buffer_fill_percentage = 0
+                        
+                        # Draw "searching" status
+                        try:
+                            self.ui_renderer.draw_info_panel(
+                                display_frame,
+                                0,
+                                False
+                            )
+                        except Exception as e:
+                            self.last_error = f"Info panel error: {str(e)}"
+                            self.error_count += 1
+                except Exception as e:
+                    # Catch-all for any unexpected errors in the processing pipeline
+                    self.last_error = f"Processing pipeline error: {str(e)}"
+                    self.error_count += 1
+                    cv2.putText(display_frame, "Processing Error", (50, 100), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         
-        # Increment frame counter
-        self.frame_count += 1
-        
-        # Detect face and get landmarks
-        landmarks = self.face_detector.get_landmarks(img)
-        
-        with self.lock:
-            if landmarks is not None:
-                self.face_detected = True
-                
-                # Extract Region of Interest (forehead area)
-                roi_pixels = self.face_detector.extract_roi_pixels(img, landmarks)
-                
-                if roi_pixels is not None and len(roi_pixels) > 0:
-                    # Calculate average green channel value (blood volume proxy)
-                    green_avg = np.mean(roi_pixels[:, 1])  # Index 1 is Green channel in BGR
-                    
-                    # Add to signal processor buffer
-                    self.signal_processor.add_value(green_avg)
-                    
-                    # Calculate buffer fill percentage
-                    buffer_size = len(self.signal_processor.buffer)
-                    self.buffer_fill_percentage = (buffer_size / config.BUFFER_SIZE) * 100
-                    
-                    # Draw ROI rectangle on frame
-                    roi_rect = self.face_detector.get_roi_rect(landmarks)
-                    if roi_rect is not None:
-                        x, y, w, h = roi_rect
-                        cv2.rectangle(display_frame, (x, y), (x + w, y + h), (0, 255, 100), 2)
-                        cv2.putText(
-                            display_frame,
-                            "ROI",
-                            (x, y - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.5,
-                            (0, 255, 100),
-                            2
-                        )
-                    
-                    # Calculate BPM if buffer is sufficiently filled
-                    if buffer_size >= config.BUFFER_SIZE:
-                        bpm = self.signal_processor.calculate_bpm()
-                        if bpm is not None:
-                            self.current_bpm = bpm
-                    
-                    # Get filtered signal for waveform visualization
-                    filtered_signal = self.signal_processor.get_filtered_signal()
-                    
-                    # Draw waveform graph
-                    if filtered_signal is not None and len(filtered_signal) > 0:
-                        graph_x = 20
-                        graph_y = 20
-                        self.ui_renderer.draw_graph(
-                            display_frame,
-                            filtered_signal,
-                            (graph_x, graph_y)
-                        )
-                    
-                    # Draw info panel with BPM
-                    self.ui_renderer.draw_info_panel(
-                        display_frame,
-                        self.current_bpm,
-                        self.face_detected
-                    )
-                    
-                    # Draw progress bar for buffer fill
-                    if self.buffer_fill_percentage < 100:
-                        progress_x = display_frame.shape[1] - 220
-                        progress_y = display_frame.shape[0] - 60
-                        self.ui_renderer.draw_progress_bar(
-                            display_frame,
-                            self.buffer_fill_percentage / 100,
-                            (progress_x, progress_y),
-                            200,
-                            20
-                        )
-            else:
-                # No face detected
-                self.face_detected = False
-                self.buffer_fill_percentage = 0
-                
-                # Draw "searching" status
-                self.ui_renderer.draw_info_panel(
-                    display_frame,
-                    0,
-                    False
-                )
-        
-        # Convert back to AVFrame
-        return av.VideoFrame.from_ndarray(display_frame, format="bgr24")
+            # Convert back to AVFrame
+            return av.VideoFrame.from_ndarray(display_frame, format="bgr24")
+            
+        except Exception as e:
+            # Top-level exception handler for catastrophic errors
+            self.last_error = f"Frame processing error: {str(e)}"
+            self.error_count += 1
+            
+            # Return original frame with error message
+            try:
+                img = frame.to_ndarray(format="bgr24")
+                cv2.putText(img, f"Error: {str(e)[:50]}", (20, 50), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                cv2.putText(img, f"Error Count: {self.error_count}", (20, 100), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                return av.VideoFrame.from_ndarray(img, format="bgr24")
+            except:
+                # Last resort - return original frame
+                return frame
 
 
 # RTC Configuration for WebRTC
