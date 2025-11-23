@@ -13,6 +13,8 @@ import cv2
 import numpy as np
 from collections import deque
 import threading
+from datetime import datetime
+import io
 
 # Import custom modules
 from face_detector import FaceDetector
@@ -163,6 +165,10 @@ class VideoTransformer(VideoProcessorBase):
         # Streamlit UI elements (will be updated from main thread)
         self.status_placeholder = None
         self.metrics_placeholder = None
+        
+        # Data logging for export
+        self.bpm_history = []  # List of (timestamp, bpm, buffer_fill) tuples
+        self.session_start = datetime.now()
 
     def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
         """
@@ -253,6 +259,12 @@ class VideoTransformer(VideoProcessorBase):
                                     bpm = self.signal_processor.calculate_bpm()
                                     if bpm is not None:
                                         self.current_bpm = bpm
+                                        # Log BPM to history for export
+                                        self.bpm_history.append((
+                                            datetime.now(),
+                                            bpm,
+                                            self.buffer_fill_percentage
+                                        ))
                             except Exception as e:
                                 self.last_error = f"BPM calculation error: {str(e)}"
                                 self.error_count += 1
@@ -341,6 +353,47 @@ class VideoTransformer(VideoProcessorBase):
             except:
                 # Last resort - return original frame
                 return frame
+    
+    def get_csv_data(self) -> str:
+        """
+        Generate CSV data from BPM history.
+        
+        Returns:
+            CSV formatted string with headers and data
+        """
+        if not self.bpm_history:
+            return "No data recorded yet"
+        
+        # Create CSV header
+        csv_lines = ["Timestamp,Elapsed Time (s),BPM,Signal Quality (%)"]
+        
+        # Add data rows
+        for timestamp, bpm, buffer_fill in self.bpm_history:
+            elapsed = (timestamp - self.session_start).total_seconds()
+            csv_lines.append(f"{timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]},{elapsed:.2f},{bpm:.1f},{buffer_fill:.1f}")
+        
+        return "\n".join(csv_lines)
+    
+    def get_session_stats(self) -> dict:
+        """
+        Calculate session statistics.
+        
+        Returns:
+            Dictionary with session statistics
+        """
+        if not self.bpm_history:
+            return {}
+        
+        bpm_values = [bpm for _, bpm, _ in self.bpm_history]
+        
+        return {
+            "session_duration": (datetime.now() - self.session_start).total_seconds(),
+            "total_readings": len(self.bpm_history),
+            "avg_bpm": np.mean(bpm_values),
+            "min_bpm": np.min(bpm_values),
+            "max_bpm": np.max(bpm_values),
+            "std_bpm": np.std(bpm_values)
+        }
 
 
 # RTC Configuration for WebRTC
@@ -420,6 +473,29 @@ with col2:
                 st.metric(
                     label="Signal Quality",
                     value=f"{processor.buffer_fill_percentage:.0f}%"
+                )
+            
+            # Session statistics
+            if hasattr(processor, 'bpm_history') and len(processor.bpm_history) > 0:
+                stats = processor.get_session_stats()
+                st.markdown("### 📊 Session Stats")
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.metric("Avg BPM", f"{stats['avg_bpm']:.1f}")
+                    st.metric("Min BPM", f"{stats['min_bpm']:.1f}")
+                with col_b:
+                    st.metric("Max BPM", f"{stats['max_bpm']:.1f}")
+                    st.metric("Readings", stats['total_readings'])
+                
+                # Data export button
+                st.markdown("### 💾 Export Data")
+                csv_data = processor.get_csv_data()
+                st.download_button(
+                    label="📥 Download CSV",
+                    data=csv_data,
+                    file_name=f"aurascan_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
                 )
 
 
