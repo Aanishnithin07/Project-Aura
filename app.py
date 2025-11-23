@@ -30,47 +30,97 @@ st.set_page_config(
 )
 
 
-# Custom CSS for better styling
+# Custom CSS for enhanced UI styling
 st.markdown("""
     <style>
+    /* Main header with gradient text */
     .main-header {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #00ff64;
+        font-size: 3rem;
+        font-weight: 900;
+        background: linear-gradient(90deg, #00ff64 0%, #00c8ff 50%, #00ff64 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         text-align: center;
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
+        animation: glow 2s ease-in-out infinite alternate;
     }
+    
+    @keyframes glow {
+        from { filter: drop-shadow(0 0 5px #00ff64); }
+        to { filter: drop-shadow(0 0 20px #00c8ff); }
+    }
+    
     .sub-header {
-        font-size: 1.2rem;
+        font-size: 1.3rem;
         color: #00c8ff;
         text-align: center;
         margin-bottom: 2rem;
+        font-weight: 300;
+        letter-spacing: 1px;
     }
-    .info-box {
-        background-color: #1e1e1e;
-        padding: 1.5rem;
-        border-radius: 10px;
+    
+    /* Info banner styling */
+    .stAlert {
+        background: linear-gradient(135deg, rgba(0,255,100,0.1) 0%, rgba(0,200,255,0.1) 100%);
         border-left: 4px solid #00ff64;
-        margin: 1rem 0;
-    }
-    .metric-card {
-        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-        padding: 1.5rem;
         border-radius: 10px;
-        border: 1px solid #00ff64;
-        text-align: center;
     }
+    
+    /* Metric cards */
+    [data-testid="stMetricValue"] {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #00ff64;
+    }
+    
+    [data-testid="stMetricLabel"] {
+        font-size: 1.1rem;
+        color: #00c8ff;
+        font-weight: 600;
+    }
+    
+    /* Progress bar */
     .stProgress > div > div > div > div {
-        background-color: #00ff64;
+        background: linear-gradient(90deg, #00ff64 0%, #00c8ff 100%);
+    }
+    
+    /* Success/Warning boxes */
+    .stSuccess {
+        background-color: rgba(0, 255, 100, 0.1);
+        border: 1px solid #00ff64;
+        border-radius: 8px;
+    }
+    
+    .stWarning {
+        background-color: rgba(255, 200, 0, 0.1);
+        border: 1px solid #ffc800;
+        border-radius: 8px;
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
+    }
+    
+    /* Footer */
+    .footer-link {
+        color: #00c8ff;
+        text-decoration: none;
+        transition: color 0.3s ease;
+    }
+    
+    .footer-link:hover {
+        color: #00ff64;
     }
     </style>
 """, unsafe_allow_html=True)
 
 
-# Main header
-st.markdown('<p class="main-header">🩺 AuraScan: Remote Vitals Monitor</p>', unsafe_allow_html=True)
+# Main header with enhanced styling
+st.markdown('<p class="main-header">🩺 AuraScan Pro</p>', unsafe_allow_html=True)
 st.markdown(
-    '<p class="sub-header">Contactless Heart Rate Monitoring via Remote Photoplethysmography</p>',
+    '<p class="sub-header">AI-Powered Contactless Heart Rate Monitoring | Remote Photoplethysmography Technology</p>',
     unsafe_allow_html=True
 )
 

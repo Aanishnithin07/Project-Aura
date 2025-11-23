@@ -108,6 +108,80 @@ class FaceDetector:
         
         return frame
     
+    def get_landmarks(self, frame):
+        """
+        Get face landmarks from frame.
+        
+        Args:
+            frame: BGR image from webcam
+            
+        Returns:
+            landmarks object if face detected, else None
+        """
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.face_mesh.process(rgb_frame)
+        
+        if results.multi_face_landmarks:
+            return results.multi_face_landmarks[0]
+        return None
+    
+    def extract_roi_pixels(self, frame, landmarks):
+        """
+        Extract pixel values from forehead ROI.
+        
+        Args:
+            frame: BGR image
+            landmarks: MediaPipe face landmarks
+            
+        Returns:
+            numpy array of pixel values from ROI
+        """
+        if landmarks is None:
+            return None
+        
+        h, w, _ = frame.shape
+        roi_points = []
+        
+        for idx in self.FOREHEAD_LANDMARKS:
+            landmark = landmarks.landmark[idx]
+            x = int(landmark.x * w)
+            y = int(landmark.y * h)
+            roi_points.append((x, y))
+        
+        # Create mask for ROI
+        mask = np.zeros((h, w), dtype=np.uint8)
+        points_array = np.array(roi_points, dtype=np.int32)
+        cv2.fillPoly(mask, [points_array], 255)
+        
+        # Extract pixels
+        roi_pixels = frame[mask > 0]
+        return roi_pixels
+    
+    def get_roi_rect(self, landmarks):
+        """
+        Get bounding rectangle for ROI visualization.
+        
+        Args:
+            landmarks: MediaPipe face landmarks
+            
+        Returns:
+            tuple (x, y, w, h) or None
+        """
+        if landmarks is None:
+            return None
+        
+        # Get forehead landmarks coordinates
+        xs = [landmarks.landmark[idx].x for idx in self.FOREHEAD_LANDMARKS]
+        ys = [landmarks.landmark[idx].y for idx in self.FOREHEAD_LANDMARKS]
+        
+        x_min = min(xs)
+        x_max = max(xs)
+        y_min = min(ys)
+        y_max = max(ys)
+        
+        # Return as pixel coordinates (will be scaled by caller)
+        return (x_min, y_min, x_max - x_min, y_max - y_min)
+    
     def __del__(self):
         """
         Clean up resources when the detector is destroyed.

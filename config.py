@@ -22,3 +22,15 @@ DEFAULT_FONT = cv2.FONT_HERSHEY_SIMPLEX  # Consistent font for UI elements
 WAVEFORM_WINDOW_SIZE = 150  # Number of points to display on the graph
 WAVEFORM_HEIGHT = 120  # Height of the waveform panel in pixels
 WAVEFORM_COLOR = (0, 255, 100)  # Bright green for ECG-style line
+
+# Filter settings for display
+FILTER_LOW_HZ = LOW_CUT
+FILTER_HIGH_HZ = HIGH_CUT
+
+# BPM range
+MIN_BPM = int(LOW_CUT * 60)
+MAX_BPM = int(HIGH_CUT * 60)
+
+# Frame dimensions (for display)
+FRAME_WIDTH = 640
+FRAME_HEIGHT = 480
